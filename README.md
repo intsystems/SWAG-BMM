@@ -5,7 +5,7 @@
 "Classical" evidence lower bound approaches allows researcher to perform a simplified Bayesian inference over quite complex models, like deep learning models. This approach involves MC-like sampling at each optimization iteration. Alternative approach is to consider parameters W as a sample from unknown distribution that changes under action of optimization operator (like SGD) at each optimization step. From the researcher perspective, this approach is useufl because doesn't need to change the optimization at all.
 
 ## Algorithms to implement 
-[ELBO](https://arxiv.org/pdf/1504.01344)
+[ELBO with SGD](https://arxiv.org/pdf/1504.01344)
 
 [ELBO with preconditioned SLGD](https://icml.cc/2011/papers/398_icmlpaper.pdf)
 
