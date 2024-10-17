@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "swag-bmm"
+name = "swaglib"
 version = "0.1.0"
 description = "a library for the evidence lower bound approach implementation for the Bayesian inference over deep neural networks"
 authors = ["Andron00e, BungaBonga, lxstsvnd, alshestt"]
