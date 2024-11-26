@@ -1,7 +1,7 @@
 import unittest
 import torch
 import numpy as np
-from optim import sgfs  
+from swaglib.optim import sgfs  
 
 class TestSGFS(unittest.TestCase):
 
