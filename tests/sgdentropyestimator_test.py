@@ -48,7 +48,7 @@ class TestSGDEntropyEstimator(unittest.TestCase):
 
     def test_jvp(self):
         grads = [torch.randn(2, 2) for _ in self.params]  
-        vector = torch.randn(4)  # Вектор для умножения
+        vector = torch.randn(4)  
         jvp_result = self.optimizer._jvp(grads, vector)
         self.assertIsInstance(jvp_result, torch.Tensor)
         self.assertEqual(jvp_result.shape, vector.shape)
