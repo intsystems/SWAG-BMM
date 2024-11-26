@@ -6,10 +6,9 @@ from swaglib.optim import sgfs
 class TestSGFS(unittest.TestCase):
 
     def setUp(self):
-        # Установка тестовых значений для каждого теста
         self.lr = 1.0e-5
-        self.B = np.random.rand(10, 10)  # Пример матрицы B
-        self.model = torch.nn.Linear(10, 1)  # Пример модели
+        self.B = np.random.rand(10, 10)  
+        self.model = torch.nn.Linear(10, 1) 
         self.params = {
             'lr': self.lr,
             'B': torch.tensor(self.B, dtype=torch.float32),
@@ -28,7 +27,7 @@ class TestSGFS(unittest.TestCase):
     def test_create_auxiliary_variables(self):
         self.optimizer._create_auxiliary_variables()
         self.assertEqual(self.optimizer.lr.item(), self.lr)
-        self.assertEqual(self.optimizer.n_weights, 10)  # Заменить на фактическое количество весов
+        self.assertEqual(self.optimizer.n_weights, 10)  
         self.assertEqual(self.optimizer.I_t.shape, (self.optimizer.n_weights, self.optimizer.n_weights))
         self.assertEqual(self.optimizer.it.item(), 1.0)
 
@@ -36,11 +35,11 @@ class TestSGFS(unittest.TestCase):
         self.optimizer._create_auxiliary_variables()
         updates, log_likelihood = self.optimizer._get_updates()
         
-        # Проверим структуру обновлений
+
         self.assertIsInstance(updates, list)
         self.assertGreater(len(updates), 0)
 
-        # Проверим логарифмическую вероятность
+
         self.assertIsInstance(log_likelihood, torch.Tensor)
 
     def test_update_parameters(self):
@@ -50,9 +49,9 @@ class TestSGFS(unittest.TestCase):
 
         for param, update in updates:
             if param is not self.optimizer.I_t and param is not self.optimizer.it:
-                param.data += update  # Применяем обновления к параметрам
+                param.data += update  
 
-        # Проверяем, изменились ли параметры
+
         for i, param in enumerate(self.optimizer.weights):
             self.assertFalse(torch.equal(param.data, initial_weights[i].data))
 
