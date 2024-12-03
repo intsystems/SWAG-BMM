@@ -1,6 +1,6 @@
 import unittest
 import torch
-from swaglib.optim import SGDEntropyEstimator  
+from swaglib.optim.sgdentropyestimator import SGDEntropyEstimator  
 
 class TestSGDEntropyEstimator(unittest.TestCase):
 
