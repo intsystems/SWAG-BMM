@@ -6,7 +6,7 @@ class SGFS(torch.optim.Optimizer):
         Инициализация оптимизатора SGFS.
         
         :param params: Параметры модели, которые нужно оптимизировать.
-        :param lr: Скорость обучения (learning rate).
+        :param lr: learning rate.
         :param h_max: Максимальное значение h, используется в режиме 'diagonal'.
         :param mode: Режим оптимизации ('basic', 'diagonal', 'scalar').
         """
