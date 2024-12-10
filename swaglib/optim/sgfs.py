@@ -75,6 +75,8 @@ class SGFS(torch.optim.Optimizer):
         :param closure: Функция для вычисления потерь (loss) и градиентов.
         :return: Значение потерь после шага.
         """
+        if self.all_gradients == {}:
+            raise ValueError("The gradients list is empty.")
         loss = None  # Инициализация переменной потерь
         if closure is not None:
             loss = closure()  # Вычисление потерь с использованием замыкания
