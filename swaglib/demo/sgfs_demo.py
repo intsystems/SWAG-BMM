@@ -43,7 +43,7 @@ def demo_sgfs(batch_size=16):
 
 
     # Обучаем модель
-    num_epochs = 100
+    num_epochs = 2000
     for epoch in range(num_epochs):
         model.train()  # Устанавливаем модель в режим обучения
 
