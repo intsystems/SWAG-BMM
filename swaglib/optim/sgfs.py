@@ -2,7 +2,7 @@ import torch
 
 
 class SGFS(torch.optim.Optimizer):
-    def __init__(self, params, lr=1.0e-2, h_max=None, mode='basic'):
+    def __init__(self, params, lr=1.0e-2, h_max=None, mode='basic', all_gradients=None):
         """
         Инициализация оптимизатора SGFS.
 
@@ -14,8 +14,8 @@ class SGFS(torch.optim.Optimizer):
         self.lr = lr  # Скорость обучения
         self.h_max = h_max  # Максимальное значение h
         self.mode = mode  # Режим работы оптимизатора
+        self.all_gradients = all_gradients  # Словарь с градиентами
         self.E = None  # Матрица E (для управления шумом)
-        self.param_size = None  # Размер параметров
 
         super().__init__(params, defaults={})  # Инициализация базового класса
 
@@ -25,10 +25,13 @@ class SGFS(torch.optim.Optimizer):
 
         :return: Дисперсия градиентов.
         """
-        gradients_tensor = torch.stack(gradients_list)  # Стек градиентов в тензор
-        C = torch.cov(gradients_tensor.T)
+        d = len(gradients_list)
+        prod_shape = torch.tensor(gradients_list[0].shape).prod().item()
+        gradients_tensor = torch.stack(gradients_list)
+        flattened_tensor = gradients_tensor.view(d, prod_shape)
+        covariance_matrix = torch.cov(flattened_tensor.T).view(prod_shape, prod_shape)
 
-        return C
+        return covariance_matrix
 
     def compute_h(self, C, batch_size):
         """
@@ -72,36 +75,32 @@ class SGFS(torch.optim.Optimizer):
         :param closure: Функция для вычисления потерь (loss) и градиентов.
         :return: Значение потерь после шага.
         """
-        gradients_list = []  # Очистка списка градиентов
         loss = None  # Инициализация переменной потерь
         if closure is not None:
             loss = closure()  # Вычисление потерь с использованием замыкания
 
-        # Сбор градиентов от всех параметров
+        # Цикл по параметрам
         for group in self.param_groups:
             for param in group['params']:
                 if param.grad is not None:
-                    gradients_list.append(param.grad.data.clone())  # Добавление градиента в список
-                    print(param.grad.view(1, -1))
+                    gradients_list = self.all_gradients[param]
+                    shape = gradients_list[0].shape
+                    prod_shape = torch.tensor(gradients_list[0].shape).prod().item()
+                    grad = torch.mean(torch.stack(gradients_list)).view(prod_shape).unsqueeze(-1)
+                    C = self.compute_c(gradients_list) # Вычисление матрицы(!) C из градиентов
+                    batch_size = len(gradients_list)  # размер батча
+                    if not gradients_list:
+                        raise ValueError("The gradients list is empty.")
 
-        if not gradients_list:
-            raise ValueError("The gradients list is empty.")
-
-        C = self.compute_c(gradients_list)  # Вычисление матрицы C из градиентов
-        batch_size = len(gradients_list) #размер батча
-        self.E = torch.eye(self.param_size)  # Инициализация матрицы E как единичной матрицы
-        H = self.compute_h(C, batch_size)  # Вычисление матрицы H
-
-        # Обновление параметров модели
-        for group in self.param_groups:
-            for param in group['params']:
-                if param.grad is not None:
-                    # Генерация шума с использованием многомерного нормального распределения
+                    self.E = torch.eye(prod_shape)  # Инициализация матрицы E как единичной матрицы(!)
+                    H = self.compute_h(C, batch_size)  # Вычисление матрицы(!) H
                     noise = torch.distributions.MultivariateNormal(
-                        torch.zeros(self.param_size),
+                        torch.zeros(param.size()),
                         covariance_matrix=(self.E @ self.E.T)
                     )
                     # Обновление параметров с учетом градиентов и шума
-                    param.data -= self.lr ** 2 * H @ param.grad - self.lr * (H @ (self.E @ noise.sample()))
+                    vector_delta = self.lr ** 2 * H @ grad - self.lr * (H @ (self.E @ noise.sample()))
+                    tensor_delta = vector_delta.view(*shape)
+                    param.data -= tensor_delta
 
         return loss  # Возвращение значения потерь
