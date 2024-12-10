@@ -1,6 +1,6 @@
 import unittest
 import torch
-from swaglib.optim import ConstantSGDasVEM 
+from swaglib.optim.sgdVEM import ConstantSGDasVEM 
 
 class TestConstantSGDasVEM(unittest.TestCase):
 
