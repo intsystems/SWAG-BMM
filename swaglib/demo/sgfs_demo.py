@@ -22,6 +22,7 @@ def generate_data(num_points=100):
     return x, y
 
 
+
 # Основная функция для демонстрации SGFS
 def demo_sgfs(batch_size=16):
     # Генерируем данные
@@ -35,18 +36,25 @@ def demo_sgfs(batch_size=16):
     model = SimpleModel()
     criterion = nn.MSELoss()  # Среднеквадратичная ошибка
 
-    # Инициализируем оптимизатор SGFS
-    optimizer = SGFS(model.parameters(), lr=0.01)
+
+    sample_optimizer = optim.SGD(model.parameters(), lr=0.01)
+
+
+
 
     # Обучаем модель
     num_epochs = 100
     for epoch in range(num_epochs):
         model.train()  # Устанавливаем модель в режим обучения
 
+        # Словарь для накопления градиентов по всем батчам
+        all_gradients = {param: [] for param in model.parameters()}
+
         # Проходим по всем батчам
         for batch_x, batch_y in dataloader:
+
             # Обнуляем градиенты перед каждой итерацией
-            optimizer.zero_grad()
+            sample_optimizer.zero_grad()
 
             # Прямой проход
             outputs = model(batch_x)
@@ -57,8 +65,19 @@ def demo_sgfs(batch_size=16):
             # Обратный проход
             loss.backward()
 
-            # Шаг оптимизации
-            optimizer.step()
+            gradients_dict = {param: param.grad.detach().cpu() for param in model.parameters()}
+            for name in all_gradients.keys():
+                all_gradients[name].append(gradients_dict[name])
+
+
+
+        #Инициализируем оптимизатор SGFS
+        optimizer = SGFS(model.parameters(), lr=0.01, all_gradients=all_gradients)
+
+        #Шаг оптимизации
+        optimizer.step()
+
+        #print(all_gradients.keys())
 
         # Выводим информацию об эпохе
         if (epoch + 1) % 10 == 0:
@@ -69,9 +88,9 @@ def demo_sgfs(batch_size=16):
 
 
 if __name__ == '__main__':
-    #demo_sgfs(batch_size=16)
+    demo_sgfs(batch_size=16)
 
-    model = SimpleModel()
+    #model = SimpleModel()
 
-    for name, param in model.named_parameters():
-        print(f"Parameter: {name}, Size: {param.size()}")
+    #for name, param in model.named_parameters():
+        #print(f"Parameter: {name}, Size: {param.size()}")
