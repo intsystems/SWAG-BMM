@@ -1,10 +1,11 @@
 import torch
 
+
 class SGFS(torch.optim.Optimizer):
     def __init__(self, params, lr=1.0e-2, h_max=None, mode='basic'):
         """
         Инициализация оптимизатора SGFS.
-        
+
         :param params: Параметры модели, которые нужно оптимизировать.
         :param lr: learning rate.
         :param h_max: Максимальное значение h, используется в режиме 'diagonal'.
@@ -13,23 +14,23 @@ class SGFS(torch.optim.Optimizer):
         self.lr = lr  # Скорость обучения
         self.h_max = h_max  # Максимальное значение h
         self.mode = mode  # Режим работы оптимизатора
-        self.gradients_list = []  # Список для хранения градиентов
         self.E = None  # Матрица E (для управления шумом)
         self.param_size = None  # Размер параметров
+
         super().__init__(params, defaults={})  # Инициализация базового класса
 
-    def compute_c(self):
+    def compute_c(self, gradients_list):
         """
         Вычисляет матрицу C, содержащую дисперсию градиентов.
-        
+
         :return: Дисперсия градиентов.
         """
-        gradients_tensor = torch.stack(self.gradients_list)  # Стек градиентов в тензор
-        C = gradients_tensor.var(dim=0, unbiased=False)  # Вычисление дисперсии по первому измерению
+        gradients_tensor = torch.stack(gradients_list)  # Стек градиентов в тензор
+        C = torch.cov(gradients_tensor.T)
 
         return C
 
-    def compute_h(self, C):
+    def compute_h(self, C, batch_size):
         """
         Вычисляет матрицу H в зависимости от выбранного режима.
 
@@ -39,7 +40,7 @@ class SGFS(torch.optim.Optimizer):
         H = None  # Инициализация H
         if self.mode == 'basic':
             # Вычисление H для базового режима
-            H = 2 / len(self.gradients_list) * torch.inverse(self.lr**2 * C + self.E @ self.E.T)
+            H = 2 / batch_size * torch.inverse(self.lr ** 2 * C + self.E @ self.E.T)
         elif self.mode == 'diagonal':
             # Вычисление H для диагонального режима
             if self.h_max is not None:
@@ -50,26 +51,28 @@ class SGFS(torch.optim.Optimizer):
                 B = torch.linalg.cholesky(C)  # Холоджизование матрицы C
                 B_d = torch.diagonal(B)  # Диагональные элементы B
                 E_d = torch.diagonal(self.E)  # Диагональные элементы E
-                H_vec = 1 / (torch.mul(self.lr**2 * B_d * B_d, E_d * E_d))  # Вычисление вектора H
-                H = 2 / len(self.gradients_list) * torch.diag(H_vec)  # Создание диагональной матрицы H
+                H_vec = 1 / (torch.mul(self.lr ** 2 * B_d * B_d, E_d * E_d))  # Вычисление вектора H
+                H = 2 / batch_size * torch.diag(H_vec)  # Создание диагональной матрицы H
         elif self.mode == 'scalar':
             # Вычисление H для скалярного режима
             one_vec = torch.ones(C.size(dim=0))
             B = torch.linalg.cholesky(C)
             B_d = torch.diagonal(B)
             E_d = torch.diagonal(self.E)
-            H_scalar = 2 * C.size(dim=0) / len(self.gradients_list) / torch.sum(torch.mul(self.lr**2 * B_d * B_d, E_d * E_d))
+            H_scalar = 2 * C.size(dim=0) / batch_size / torch.sum(
+                torch.mul(self.lr ** 2 * B_d * B_d, E_d * E_d))
             H = torch.diag(H_scalar * one_vec)  # Создание диагональной матрицы H
         return H
+
 
     def step(self, closure=None):
         """
         Выполняет один шаг оптимизации, обновляя параметры.
-        
+
         :param closure: Функция для вычисления потерь (loss) и градиентов.
         :return: Значение потерь после шага.
         """
-        self.gradients_list = []  # Очистка списка градиентов
+        gradients_list = []  # Очистка списка градиентов
         loss = None  # Инициализация переменной потерь
         if closure is not None:
             loss = closure()  # Вычисление потерь с использованием замыкания
@@ -78,12 +81,16 @@ class SGFS(torch.optim.Optimizer):
         for group in self.param_groups:
             for param in group['params']:
                 if param.grad is not None:
-                    self.gradients_list.append(param.grad.data.clone())  # Добавление градиента в список
-                    self.param_size = param.data.size()  # Запись размера параметров
+                    gradients_list.append(param.grad.data.clone())  # Добавление градиента в список
+                    print(param.grad.view(1, -1))
 
-        C = self.compute_c()  # Вычисление матрицы C из градиентов
+        if not gradients_list:
+            raise ValueError("The gradients list is empty.")
+
+        C = self.compute_c(gradients_list)  # Вычисление матрицы C из градиентов
+        batch_size = len(gradients_list) #размер батча
         self.E = torch.eye(self.param_size)  # Инициализация матрицы E как единичной матрицы
-        H = self.compute_h(C)  # Вычисление матрицы H
+        H = self.compute_h(C, batch_size)  # Вычисление матрицы H
 
         # Обновление параметров модели
         for group in self.param_groups:
@@ -91,10 +98,10 @@ class SGFS(torch.optim.Optimizer):
                 if param.grad is not None:
                     # Генерация шума с использованием многомерного нормального распределения
                     noise = torch.distributions.MultivariateNormal(
-                        torch.zeros(self.param_size), 
+                        torch.zeros(self.param_size),
                         covariance_matrix=(self.E @ self.E.T)
                     )
                     # Обновление параметров с учетом градиентов и шума
-                    param.data -= self.lr**2 * H @ param.grad - self.lr * (H @ (self.E @ noise.sample()))
+                    param.data -= self.lr ** 2 * H @ param.grad - self.lr * (H @ (self.E @ noise.sample()))
 
         return loss  # Возвращение значения потерь
