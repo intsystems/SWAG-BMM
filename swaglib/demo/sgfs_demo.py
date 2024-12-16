@@ -5,20 +5,28 @@ from swaglib.optim.sgfs import SGFS
 from torch.utils.data import DataLoader, TensorDataset
 
 
-# Определяем простую линейную модель
-class SimpleModel(nn.Module):
+# Определяем модель
+class ComplexModel(nn.Module):
     def __init__(self):
-        super(SimpleModel, self).__init__()
-        self.linear = nn.Linear(1, 1)  # Линейный слой
+        super(ComplexModel, self).__init__()
+        self.layer1 = nn.Linear(1, 10)
+        self.layer2 = nn.Linear(10, 5)
+        self.output = nn.Linear(5, 1)
 
     def forward(self, x):
-        return self.linear(x)  # Прямой проход через модель
+        x = torch.relu(self.layer1(x))
+        x = torch.relu(self.layer2(x))
+        x = self.output(x)
+        return x
 
 
 # Генерация случайных данных для обучения
 def generate_data(num_points=100):
     x = torch.linspace(-10, 10, num_points).view(-1, 1)  # Входные данные
-    y = 2 * x + 3 + torch.normal(0, 1, x.size())  # Целевые данные с шумом
+
+    # Создаем зависимость для целевых данных, добавляем синусоиды и шум
+    y = 0.5 * (x ** 2) - 2 * torch.sin(x) + 3 + torch.normal(0, 1, x.size())
+
     return x, y
 
 
@@ -33,7 +41,7 @@ def demo_sgfs(batch_size=16):
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)  # Создаем DataLoader
 
     # Создаем модель и определяем функцию потерь
-    model = SimpleModel()
+    model = ComplexModel()
     criterion = nn.MSELoss()  # Среднеквадратичная ошибка
 
 
@@ -84,7 +92,7 @@ def demo_sgfs(batch_size=16):
             print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}')
 
     # Выводим параметры после обучения
-    print(f'Model parameters: {list(model.parameters())}')
+    #print(f'Model parameters: {list(model.parameters())}')
 
 
 if __name__ == '__main__':
