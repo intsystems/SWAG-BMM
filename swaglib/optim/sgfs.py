@@ -88,7 +88,7 @@ class SGFS(torch.optim.Optimizer):
                     gradients_list = self.all_gradients[param]
                     shape = gradients_list[0].shape
                     prod_shape = torch.tensor(gradients_list[0].shape).prod().item()
-                    grad = torch.mean(torch.stack(gradients_list)).view(prod_shape).unsqueeze(-1)
+                    grad = torch.mean(torch.stack(gradients_list), 0).view(prod_shape).unsqueeze(-1)
                     C = self.compute_c(gradients_list) # Вычисление матрицы(!) C из градиентов
                     batch_size = len(gradients_list)  # размер батча
                     if not gradients_list:
@@ -97,11 +97,11 @@ class SGFS(torch.optim.Optimizer):
                     self.E = torch.eye(prod_shape)  # Инициализация матрицы E как единичной матрицы(!)
                     H = self.compute_h(C, batch_size)  # Вычисление матрицы(!) H
                     noise = torch.distributions.MultivariateNormal(
-                        torch.zeros(param.size()),
+                        torch.zeros(grad.size()[0]),
                         covariance_matrix=(self.E @ self.E.T)
                     )
                     # Обновление параметров с учетом градиентов и шума
-                    vector_delta = self.lr ** 2 * H @ grad - self.lr * (H @ (self.E @ noise.sample()))
+                    vector_delta = self.lr ** 2 * H @ grad - self.lr * (H @ (self.E @ noise.sample()).unsqueeze(-1))
                     tensor_delta = vector_delta.view(*shape)
                     param.data -= tensor_delta
 
