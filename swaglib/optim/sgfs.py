@@ -51,7 +51,7 @@ class SGFS(torch.optim.Optimizer):
                 h_vec = self.h_max * one_vec  # Вектор максимальных значений h
                 H = torch.diag(h_vec)  # Создание диагональной матрицы H
             else:
-                B = torch.linalg.cholesky(C)  # Холоджизование матрицы C
+                B = torch.linalg.cholesky(C)  # Разложение Холетцкого матрицы C
                 B_d = torch.diagonal(B)  # Диагональные элементы B
                 E_d = torch.diagonal(self.E)  # Диагональные элементы E
                 H_vec = 1 / (torch.mul(self.lr ** 2 * B_d * B_d, E_d * E_d))  # Вычисление вектора H
